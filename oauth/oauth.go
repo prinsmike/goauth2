@@ -44,6 +44,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"io/ioutil"	
 )
 
 type OAuthError struct {
@@ -286,8 +287,8 @@ func (t *Transport) updateToken(tok *Token, v url.Values) error {
 	if r.StatusCode != 200 {
 		return OAuthError{"updateToken", r.Status}
 	}
-	body := make([]byte, r.ContentLength)
-	_, err = r.Body.Read(body)
+	
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
@@ -297,7 +298,7 @@ func (t *Transport) updateToken(tok *Token, v url.Values) error {
 		Refresh   string        `json:"refresh_token"`
 		ExpiresIn time.Duration `json:"expires_in"`
 	}
-	err = json.Unmarshal(body, &b) //I haven't tested to make sure this still works with Google, so beware
+	err = json.Unmarshal(body, &b)
 
 	if err != nil {
 		vals, err := url.ParseQuery(string(body))
@@ -325,3 +326,4 @@ func (t *Transport) updateToken(tok *Token, v url.Values) error {
 	}
 	return nil
 }
+
