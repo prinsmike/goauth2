@@ -38,9 +38,7 @@
 package oauth
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
+	"encoding/json"	
 	"net/http"
 	"net/url"
 	"os"
@@ -70,7 +68,7 @@ type CacheFile string
 func (f CacheFile) Token() (*Token, error) {
 	file, err := os.Open(string(f))
 	if err != nil {
-		return nil, fmt.Errorf("CacheFile: %v", err)
+		return nil, OAuthError{"CacheFile.Token", err.Error()}
 	}
 	tok := &Token{}
 	dec := json.NewDecoder(file)
@@ -172,11 +170,13 @@ func (c *Config) AuthCodeURL(state string) string {
 		panic("AuthURL malformed: " + err.Error())
 	}
 	q := url.Values{
-		"response_type": {"code"},
-		"client_id":     {c.ClientId},
-		"redirect_uri":  {c.redirectURL()},
-		"scope":         {c.Scope},
-		"state":         {state},
+		"response_type":   {"code"},
+		"client_id":       {c.ClientId},
+		"redirect_uri":    {c.redirectURL()},
+		"scope":           {c.Scope},
+		"state":           {state},
+		"access_type":     {c.AccessType},
+		"approval_prompt": {c.ApprovalPrompt},
 	}.Encode()
 	if url_.RawQuery == "" {
 		url_.RawQuery = q
@@ -257,9 +257,9 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 // Refresh renews the Transport's AccessToken using its RefreshToken.
 func (t *Transport) Refresh() error {
 	if t.Config == nil {
-		return errors.New("no Config supplied")
+		return OAuthError{"Refresh", "no Config supplied"}
 	} else if t.Token == nil {
-		return errors.New("no existing Token")
+		return OAuthError{"Refresh", "no existing Token"}
 	}
 
 	err := t.updateToken(t.Token, url.Values{
@@ -286,7 +286,6 @@ func (t *Transport) updateToken(tok *Token, v url.Values) error {
 	if r.StatusCode != 200 {
 		return OAuthError{"updateToken", r.Status}
 	}
-
 	body := make([]byte, r.ContentLength)
 	_, err = r.Body.Read(body)
 	if err != nil {
@@ -308,7 +307,7 @@ func (t *Transport) updateToken(tok *Token, v url.Values) error {
 
 		b.Access = vals.Get("access_token")
 		b.Refresh = vals.Get("refresh_token") //for facebook, this will actually be nil, but whatever
-		expires_in, err := strconv.ParseInt(vals.Get("expires"), 10, 64)
+		expires_in, err := strconv.Atoi(vals.Get("expires"))
 		if err != nil {
 			return err
 		}
